@@ -30,41 +30,54 @@ namespace BLE_Communication
         //private Dictionary<ulong, BluetoothLEDevice> m_devices;
         private List<ulong> m_devices;
         private BluetoothLEDevice currDevice;
-
+        private Dispatcher dispatcher;
         public Form1()
         {
             
             InitializeComponent();
+
+            dispatcher = Dispatcher.CurrentDispatcher;
 
             //m_devices = new Dictionary<ulong, BluetoothLEDevice>();    
             m_devices = new List<ulong>();
             m_watcher = new BluetoothLEAdvertisementWatcher();
 
             Console.WriteLine("Start Scan");
-            //BluetoothLEManufacturerData manufacturerData = new BluetoothLEManufacturerData();
-            //manufacturerData.CompanyId = 0xFFE0;
-            //m_watcher.AdvertisementFilter.Advertisement.ManufacturerData.Add(manufacturerData);
+            // find the CompanyID to filter, comment out to scan all
+            BluetoothLEManufacturerData manuInfo = new BluetoothLEManufacturerData();
+            manuInfo.CompanyId = 19784;     // for HM-10
+            //manuInfo.CompanyId = 35289;     // for BT-05
+            m_watcher.AdvertisementFilter.Advertisement.ManufacturerData.Add(manuInfo);
+
             m_watcher.ScanningMode = BluetoothLEScanningMode.Active;
             m_watcher.Received += OnAdvertisementReceived;
             m_watcher.Start();
 
         }
+
         private async void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher watcher, BluetoothLEAdvertisementReceivedEventArgs eventArgs)
         {
-            string devName = null;
-            //var manu = eventArgs.Advertisement.ManufacturerData[0].CompanyId;
-            ulong devAddr = eventArgs.BluetoothAddress;
-
-
-            BluetoothLEDevice scanDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(devAddr);
-            await Dispatcher.CurrentDispatcher.InvokeAsync(() =>
-            {
-                devName = scanDevice.Name;
-            }, DispatcherPriority.Normal);
-
+            
             //if (m_devices.ContainsKey(eventArgs.BluetoothAddress) == false)
-            if (m_devices.Contains(devAddr) == false)
+            if (m_devices.Contains(eventArgs.BluetoothAddress) == false)
             {
+                string devName = null;
+                ulong devAddr = eventArgs.BluetoothAddress;
+
+                BluetoothLEDevice scanDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(devAddr);
+
+                await dispatcher.BeginInvoke((Action)delegate
+                {
+                    if (scanDevice != null)
+                        devName = scanDevice.Name;
+                });
+
+                // Log company ID to add to the Advertisement filter
+                if (eventArgs.Advertisement.ManufacturerData.Count > 0) 
+                {
+                    Console.WriteLine($"Company ID of {devName}: {eventArgs.Advertisement.ManufacturerData[0].CompanyId}");
+                }
+
                 //m_devices.Add(eventArgs.BluetoothAddress, device);
                 m_devices.Add(devAddr);
 
