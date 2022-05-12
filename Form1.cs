@@ -18,8 +18,7 @@ using Windows.Storage.Streams;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using System.Threading;
-using Windows.UI.Core;
-using Windows.ApplicationModel.Core;
+using System.Windows.Threading;
 
 namespace BLE_Communication
 {
@@ -42,7 +41,9 @@ namespace BLE_Communication
             m_watcher = new BluetoothLEAdvertisementWatcher();
 
             Console.WriteLine("Start Scan");
-            //m_watcher.AdvertisementFilter = 
+            //BluetoothLEManufacturerData manufacturerData = new BluetoothLEManufacturerData();
+            //manufacturerData.CompanyId = 0xFFE0;
+            //m_watcher.AdvertisementFilter.Advertisement.ManufacturerData.Add(manufacturerData);
             m_watcher.ScanningMode = BluetoothLEScanningMode.Active;
             m_watcher.Received += OnAdvertisementReceived;
             m_watcher.Start();
@@ -51,12 +52,15 @@ namespace BLE_Communication
         private async void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher watcher, BluetoothLEAdvertisementReceivedEventArgs eventArgs)
         {
             string devName = null;
-            //AddScanedDevice(eventArgs.BluetoothAddress);
-            var manu = eventArgs.Advertisement.ManufacturerData[0].CompanyId;
+            //var manu = eventArgs.Advertisement.ManufacturerData[0].CompanyId;
             ulong devAddr = eventArgs.BluetoothAddress;
-            
-            //BluetoothLEDevice scanDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(devAddr);
-            //devName = scanDevice.Name;
+
+
+            BluetoothLEDevice scanDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(devAddr);
+            await Dispatcher.CurrentDispatcher.InvokeAsync(() =>
+            {
+                devName = scanDevice.Name;
+            }, DispatcherPriority.Normal);
 
             //if (m_devices.ContainsKey(eventArgs.BluetoothAddress) == false)
             if (m_devices.Contains(devAddr) == false)
@@ -92,8 +96,6 @@ namespace BLE_Communication
 
         private async void SelectAndConnect(object sender, EventArgs e, ulong addr)
         {
-            //BluetoothLEDevice device = m_devices[addr];
-            //currDevice = device;
             currDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(addr);
             BluetoothLEDevice device = currDevice;
 
@@ -102,6 +104,7 @@ namespace BLE_Communication
                 return;
             }
 
+            // pair device
             DeviceAccessStatus status = await device.RequestAccessAsync();
 
             if (status == DeviceAccessStatus.Allowed)
